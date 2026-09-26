@@ -5,7 +5,7 @@
         android:allowBackup="true"
         android:label="AploMaster"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/Theme.AploMaster">
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
@@ -19,4 +19,3 @@
     </application>
 
 </manifest>
-
