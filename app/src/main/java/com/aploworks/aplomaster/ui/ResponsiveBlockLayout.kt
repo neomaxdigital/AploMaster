@@ -14,6 +14,7 @@ import android.widget.TextView
 import androidx.annotation.DrawableRes
 import androidx.core.graphics.Insets
 import com.aploworks.aplomaster.R
+import com.aploworks.aplomaster.domain.WaveformData
 
 class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
     private val blockSpecs = listOf(
@@ -46,6 +47,13 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             addView(this)
         }
+    }
+    private val waveformBounds = RectF(230f, 90f, 1940f, 405f)
+    private val waveformView = WaveformView(context).apply {
+        contentDescription = "Waveform do áudio"
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        onSeekRequested = { fraction -> this@ResponsiveBlockLayout.onSeekRequested?.invoke(fraction) }
+        addView(this)
     }
     private val nativeTextViews = nativeTextSpecs.map { spec ->
         TextView(context).apply {
@@ -98,6 +106,15 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
         nativeTextViews[DURATION_TEXT_INDEX].text = formatTime(durationMs)
     }
 
+    fun updateWaveform(data: WaveformData?) {
+        waveformView.setWaveform(data)
+    }
+
+    fun updatePlaybackProgress(positionMs: Long, durationMs: Long) {
+        val fraction = if (durationMs > 0L) positionMs.toFloat() / durationMs else 0f
+        waveformView.setProgress(fraction)
+    }
+
     fun updateSafeInsets(insets: Insets) {
         if (safeInsets == insets) return
         safeInsets = insets
@@ -112,6 +129,7 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
         val childWidthSpec = MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY)
         val childHeightSpec = MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
         blockViews.forEach { it.measure(childWidthSpec, childHeightSpec) }
+        waveformView.measure(childWidthSpec, childHeightSpec)
         nativeTextViews.forEach { it.measure(childWidthSpec, childHeightSpec) }
         interactionViews.forEach { it.measure(childWidthSpec, childHeightSpec) }
     }
@@ -170,6 +188,22 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
                 )
             }
             blockViews[index].imageMatrix = matrix
+            if (index == PLAYER_BLOCK_INDEX) {
+                val waveformLeft = contentLeft + (waveformBounds.left - spec.contentBounds.left) * scale
+                val waveformTop = contentTop + (waveformBounds.top - spec.contentBounds.top) * scale
+                val waveformWidth = (waveformBounds.width() * scale).toInt().coerceAtLeast(1)
+                val waveformHeight = (waveformBounds.height() * scale).toInt().coerceAtLeast(1)
+                waveformView.measure(
+                    MeasureSpec.makeMeasureSpec(waveformWidth, MeasureSpec.EXACTLY),
+                    MeasureSpec.makeMeasureSpec(waveformHeight, MeasureSpec.EXACTLY),
+                )
+                waveformView.layout(
+                    waveformLeft.toInt(),
+                    waveformTop.toInt(),
+                    waveformLeft.toInt() + waveformWidth,
+                    waveformTop.toInt() + waveformHeight,
+                )
+            }
             nativeTextSpecs.forEachIndexed { textIndex, textSpec ->
                 if (textSpec.blockIndex != index) return@forEachIndexed
                 val textView = nativeTextViews[textIndex]
@@ -254,5 +288,6 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
         const val MINIMUM_BOTTOM_SPACE_DP = 6f
         const val POSITION_TEXT_INDEX = 4
         const val DURATION_TEXT_INDEX = 5
+        const val PLAYER_BLOCK_INDEX = 1
     }
 }
