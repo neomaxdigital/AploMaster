@@ -6,6 +6,7 @@ import android.graphics.Matrix
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -33,6 +34,19 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
         NativeTextSpec(2, "Escolha o resultado sonoro que deseja", 115f, 378f, 1250f, 96f, 58f, Color.rgb(194, 232, 250), false),
         NativeTextSpec(1, "00:00", 270f, 318f, 170f, 78f, 55f, Color.WHITE, false),
         NativeTextSpec(1, "00:00", 1645f, 318f, 190f, 78f, 55f, Color.WHITE, false),
+        NativeTextSpec(
+            blockIndex = 1,
+            text = "--",
+            x = 1735f,
+            y = 475f,
+            width = 145f,
+            height = 90f,
+            textSize = 70f,
+            color = Color.rgb(239, 0, 222),
+            bold = true,
+            backgroundColor = Color.rgb(2, 2, 12),
+            centered = true,
+        ),
     )
     private val interactionSpecs = listOf(
         InteractionSpec(1, InteractionType.PLAY_PAUSE, RectF(245f, 380f, 475f, 615f)),
@@ -63,6 +77,8 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
             includeFontPadding = false
             setSingleLine(true)
             setShadowLayer(1.5f, 1.5f, 2f, 0x66000000)
+            if (spec.backgroundColor != null) setBackgroundColor(spec.backgroundColor)
+            if (spec.centered) gravity = Gravity.CENTER
             contentDescription = null
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             addView(this)
@@ -113,6 +129,10 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
     fun updatePlaybackProgress(positionMs: Long, durationMs: Long) {
         val fraction = if (durationMs > 0L) positionMs.toFloat() / durationMs else 0f
         waveformView.setProgress(fraction)
+    }
+
+    fun updateBpm(value: Int?) {
+        nativeTextViews[BPM_TEXT_INDEX].text = value?.toString() ?: "--"
     }
 
     fun updateSafeInsets(insets: Insets) {
@@ -261,6 +281,8 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
         val textSize: Float,
         val color: Int,
         val bold: Boolean,
+        val backgroundColor: Int? = null,
+        val centered: Boolean = false,
     )
 
     private data class InteractionSpec(
@@ -288,6 +310,7 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
         const val MINIMUM_BOTTOM_SPACE_DP = 6f
         const val POSITION_TEXT_INDEX = 4
         const val DURATION_TEXT_INDEX = 5
+        const val BPM_TEXT_INDEX = 6
         const val PLAYER_BLOCK_INDEX = 1
     }
 }

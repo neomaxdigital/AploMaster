@@ -21,18 +21,22 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.aploworks.aplomaster.R
 import com.aploworks.aplomaster.audio.AudioPlayerController
+import com.aploworks.aplomaster.audio.BpmAnalysisController
 import com.aploworks.aplomaster.audio.WaveformAnalysisController
 import com.aploworks.aplomaster.domain.AudioPlaybackState
 import com.aploworks.aplomaster.domain.PlaybackStatus
 import com.aploworks.aplomaster.domain.WaveformData
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private lateinit var root: FrameLayout
     private lateinit var audioPlayerController: AudioPlayerController
+    private lateinit var bpmAnalysisController: BpmAnalysisController
     private lateinit var waveformAnalysisController: WaveformAnalysisController
     private var responsiveLayout: ResponsiveBlockLayout? = null
     private var playbackState = AudioPlaybackState()
     private var waveformData: WaveformData? = null
+    private var bpmValue: Int? = null
     private var lastShownError: String? = null
     private val showMainScreen = Runnable { displayMainScreen() }
     private val audioPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -43,6 +47,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         configureEdgeToEdgeWindow()
         audioPlayerController = AudioPlayerController(this, ::onPlaybackStateChanged)
+        bpmAnalysisController = BpmAnalysisController(this)
         waveformAnalysisController = WaveformAnalysisController(this)
 
         root = FrameLayout(this).apply {
@@ -61,6 +66,7 @@ class MainActivity : ComponentActivity() {
         root.removeCallbacks(showMainScreen)
         responsiveLayout = null
         audioPlayerController.release()
+        bpmAnalysisController.release()
         waveformAnalysisController.release()
         super.onDestroy()
     }
@@ -115,6 +121,7 @@ class MainActivity : ComponentActivity() {
         blocks.updatePlaybackTimes(playbackState.positionMs, playbackState.durationMs)
         blocks.updatePlaybackProgress(playbackState.positionMs, playbackState.durationMs)
         blocks.updateWaveform(waveformData)
+        blocks.updateBpm(bpmValue)
         val composition = FrameLayout(this).apply {
             layoutParams = matchParentLayoutParams()
         }
@@ -146,7 +153,9 @@ class MainActivity : ComponentActivity() {
         }
         val fileName = queryDisplayName(uri) ?: "Áudio selecionado"
         waveformData = null
+        bpmValue = null
         responsiveLayout?.updateWaveform(null)
+        responsiveLayout?.updateBpm(null)
         audioPlayerController.load(uri, fileName)
         waveformAnalysisController.analyze(
             uri = uri,
@@ -156,6 +165,17 @@ class MainActivity : ComponentActivity() {
             },
             onError = { message ->
                 Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+            },
+        )
+        bpmAnalysisController.analyze(
+            uri = uri,
+            onComplete = { result ->
+                bpmValue = result.bpm?.roundToInt()
+                responsiveLayout?.updateBpm(bpmValue)
+            },
+            onError = {
+                bpmValue = null
+                responsiveLayout?.updateBpm(null)
             },
         )
     }
