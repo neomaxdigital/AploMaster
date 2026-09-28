@@ -1,29 +1,52 @@
 package com.aploworks.aplomaster.ui
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.RectF
+import android.graphics.Typeface
+import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.TextView
 import androidx.annotation.DrawableRes
 import androidx.core.graphics.Insets
 import com.aploworks.aplomaster.R
 
 class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
     private val blockSpecs = listOf(
-        BlockSpec(R.drawable.bloco_01_barra_navegacao_masterizacao, RectF(128f, 250f, 2044f, 503f)),
+        BlockSpec(R.drawable.bloco_01_barra_navegacao_masterizacao_sem_textos, RectF(128f, 250f, 2044f, 503f)),
         BlockSpec(R.drawable.bloco_02_player_waveform_masterizacao, RectF(223f, 78f, 1949f, 657f)),
-        BlockSpec(R.drawable.bloco_03_titulo_presets_controle_volume, RectF(108f, 262f, 2079f, 487f)),
+        BlockSpec(R.drawable.bloco_03_titulo_presets_controle_volume_sem_textos, RectF(108f, 262f, 2079f, 487f)),
         BlockSpec(R.drawable.bloco_04_grade_presets, RectF(49f, 205f, 1390f, 843f)),
         BlockSpec(R.drawable.bloco_05_painel_ajuste_tons, RectF(344f, 50f, 1828f, 671f)),
         BlockSpec(R.drawable.bloco_06_cartao_intensidade, RectF(101f, 110f, 2072f, 614f)),
         BlockSpec(R.drawable.bloco_07_botoes_inferiores, RectF(159f, 194f, 2015f, 519f)),
     )
+    private val nativeTextSpecs = listOf(
+        NativeTextSpec(0, "Masterização", 405f, 270f, 760f, 120f, 82f, Color.WHITE, true),
+        NativeTextSpec(0, "Minha Música - Master", 410f, 372f, 760f, 92f, 56f, Color.rgb(194, 232, 250), false),
+        NativeTextSpec(2, "Presets", 112f, 250f, 500f, 135f, 106f, Color.WHITE, true),
+        NativeTextSpec(2, "Escolha o resultado sonoro que deseja", 115f, 378f, 1250f, 96f, 58f, Color.rgb(194, 232, 250), false),
+    )
     private val blockViews = blockSpecs.map { spec ->
         ImageView(context).apply {
             scaleType = ImageView.ScaleType.MATRIX
             setImageResource(spec.drawableRes)
+            contentDescription = null
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            addView(this)
+        }
+    }
+    private val nativeTextViews = nativeTextSpecs.map { spec ->
+        TextView(context).apply {
+            text = spec.text
+            setTextColor(spec.color)
+            typeface = Typeface.create("sans-serif", if (spec.bold) Typeface.BOLD else Typeface.NORMAL)
+            includeFontPadding = false
+            setSingleLine(true)
+            setShadowLayer(1.5f, 1.5f, 2f, 0x66000000)
             contentDescription = null
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             addView(this)
@@ -46,6 +69,7 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
         val childWidthSpec = MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY)
         val childHeightSpec = MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
         blockViews.forEach { it.measure(childWidthSpec, childHeightSpec) }
+        nativeTextViews.forEach { it.measure(childWidthSpec, childHeightSpec) }
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
@@ -102,6 +126,25 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
                 )
             }
             blockViews[index].imageMatrix = matrix
+            nativeTextSpecs.forEachIndexed { textIndex, textSpec ->
+                if (textSpec.blockIndex != index) return@forEachIndexed
+                val textView = nativeTextViews[textIndex]
+                val textLeft = contentLeft + (textSpec.x - spec.contentBounds.left) * scale
+                val textTop = contentTop + (textSpec.y - spec.contentBounds.top) * scale
+                val textWidth = (textSpec.width * scale).toInt().coerceAtLeast(1)
+                val textHeight = (textSpec.height * scale).toInt().coerceAtLeast(1)
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSpec.textSize * scale)
+                textView.measure(
+                    MeasureSpec.makeMeasureSpec(textWidth, MeasureSpec.EXACTLY),
+                    MeasureSpec.makeMeasureSpec(textHeight, MeasureSpec.EXACTLY),
+                )
+                textView.layout(
+                    textLeft.toInt(),
+                    textTop.toInt(),
+                    textLeft.toInt() + textWidth,
+                    textTop.toInt() + textHeight,
+                )
+            }
             contentTop += spec.contentBounds.height() * scale + adaptiveGap
         }
     }
@@ -109,6 +152,18 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
     private data class BlockSpec(
         @DrawableRes val drawableRes: Int,
         val contentBounds: RectF,
+    )
+
+    private data class NativeTextSpec(
+        val blockIndex: Int,
+        val text: String,
+        val x: Float,
+        val y: Float,
+        val width: Float,
+        val height: Float,
+        val textSize: Float,
+        val color: Int,
+        val bold: Boolean,
     )
 
     private companion object {
