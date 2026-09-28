@@ -1,27 +1,44 @@
 package com.aploworks.aplomaster.ui
 
+import android.content.Intent
+import android.database.Cursor
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.WindowCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.aploworks.aplomaster.R
+import com.aploworks.aplomaster.audio.AudioPlayerController
+import com.aploworks.aplomaster.domain.AudioPlaybackState
+import com.aploworks.aplomaster.domain.PlaybackStatus
 
 class MainActivity : ComponentActivity() {
     private lateinit var root: FrameLayout
+    private lateinit var audioPlayerController: AudioPlayerController
+    private var responsiveLayout: ResponsiveBlockLayout? = null
+    private var playbackState = AudioPlaybackState()
+    private var lastShownError: String? = null
     private val showMainScreen = Runnable { displayMainScreen() }
+    private val audioPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) loadSelectedAudio(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         configureEdgeToEdgeWindow()
+        audioPlayerController = AudioPlayerController(this, ::onPlaybackStateChanged)
 
         root = FrameLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -37,7 +54,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         root.removeCallbacks(showMainScreen)
+        responsiveLayout = null
+        audioPlayerController.release()
         super.onDestroy()
+    }
+
+    override fun onStop() {
+        audioPlayerController.pause()
+        super.onStop()
     }
 
     @Suppress("DEPRECATION")
@@ -72,6 +96,17 @@ class MainActivity : ComponentActivity() {
             ImageView.ScaleType.CENTER_CROP,
         )
         val blocks = ResponsiveBlockLayout(this)
+        responsiveLayout = blocks
+        blocks.onImportClick = {
+            audioPicker.launch(arrayOf("audio/*"))
+        }
+        blocks.onPlayPauseClick = {
+            if (!audioPlayerController.togglePlayPause()) {
+                Toast.makeText(this, "Importe um arquivo de áudio primeiro.", Toast.LENGTH_SHORT).show()
+            }
+        }
+        blocks.onSeekRequested = audioPlayerController::seekToFraction
+        blocks.updatePlaybackTimes(playbackState.positionMs, playbackState.durationMs)
         val composition = FrameLayout(this).apply {
             layoutParams = matchParentLayoutParams()
         }
@@ -95,6 +130,41 @@ class MainActivity : ComponentActivity() {
 
         root.addView(composition)
         ViewCompat.requestApplyInsets(blocks)
+    }
+
+    private fun loadSelectedAudio(uri: Uri) {
+        runCatching {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val fileName = queryDisplayName(uri) ?: "Áudio selecionado"
+        audioPlayerController.load(uri, fileName)
+    }
+
+    private fun queryDisplayName(uri: Uri): String? {
+        var cursor: Cursor? = null
+        return try {
+            cursor = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            if (cursor?.moveToFirst() == true) cursor.getString(0) else null
+        } catch (_: Exception) {
+            null
+        } finally {
+            cursor?.close()
+        }
+    }
+
+    private fun onPlaybackStateChanged(state: AudioPlaybackState) {
+        playbackState = state
+        responsiveLayout?.updatePlaybackTimes(state.positionMs, state.durationMs)
+        if (state.status == PlaybackStatus.ERROR && state.errorMessage != lastShownError) {
+            lastShownError = state.errorMessage
+            Toast.makeText(
+                this,
+                state.errorMessage ?: "Não foi possível abrir este áudio.",
+                Toast.LENGTH_SHORT,
+            ).show()
+        } else if (state.status != PlaybackStatus.ERROR) {
+            lastShownError = null
+        }
     }
 
     private fun createImageView(
