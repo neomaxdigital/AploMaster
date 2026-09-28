@@ -11,7 +11,6 @@ import android.view.View
 import com.aploworks.aplomaster.domain.WaveformData
 
 class WaveformView(context: Context) : View(context) {
-    private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val waveformPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         strokeCap = Paint.Cap.ROUND
     }
@@ -40,17 +39,6 @@ class WaveformView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        backgroundPaint.shader = LinearGradient(
-            0f,
-            0f,
-            width.toFloat(),
-            height.toFloat(),
-            intArrayOf(Color.rgb(7, 25, 44), Color.rgb(5, 20, 36)),
-            null,
-            Shader.TileMode.CLAMP,
-        )
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), backgroundPaint)
-
         val baselineY = height * 0.82f
         canvas.drawLine(width * 0.08f, baselineY, width * 0.92f, baselineY, baselinePaint)
 
