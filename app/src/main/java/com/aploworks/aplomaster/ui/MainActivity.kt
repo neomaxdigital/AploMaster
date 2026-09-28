@@ -22,21 +22,28 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.aploworks.aplomaster.R
 import com.aploworks.aplomaster.audio.AudioPlayerController
 import com.aploworks.aplomaster.audio.BpmAnalysisController
+import com.aploworks.aplomaster.audio.AutoGainCalculator
+import com.aploworks.aplomaster.audio.LoudnessAnalysisController
 import com.aploworks.aplomaster.audio.WaveformAnalysisController
 import com.aploworks.aplomaster.domain.AudioPlaybackState
 import com.aploworks.aplomaster.domain.PlaybackStatus
 import com.aploworks.aplomaster.domain.WaveformData
+import com.aploworks.aplomaster.domain.GainState
+import java.util.Locale
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private lateinit var root: FrameLayout
     private lateinit var audioPlayerController: AudioPlayerController
     private lateinit var bpmAnalysisController: BpmAnalysisController
+    private lateinit var loudnessAnalysisController: LoudnessAnalysisController
     private lateinit var waveformAnalysisController: WaveformAnalysisController
     private var responsiveLayout: ResponsiveBlockLayout? = null
     private var playbackState = AudioPlaybackState()
     private var waveformData: WaveformData? = null
     private var bpmValue: Int? = null
+    private var gainState = GainState()
+    private var volumeText = formatGain(0f)
     private var lastShownError: String? = null
     private val showMainScreen = Runnable { displayMainScreen() }
     private val audioPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -48,6 +55,7 @@ class MainActivity : ComponentActivity() {
         configureEdgeToEdgeWindow()
         audioPlayerController = AudioPlayerController(this, ::onPlaybackStateChanged)
         bpmAnalysisController = BpmAnalysisController(this)
+        loudnessAnalysisController = LoudnessAnalysisController(this)
         waveformAnalysisController = WaveformAnalysisController(this)
 
         root = FrameLayout(this).apply {
@@ -67,6 +75,7 @@ class MainActivity : ComponentActivity() {
         responsiveLayout = null
         audioPlayerController.release()
         bpmAnalysisController.release()
+        loudnessAnalysisController.release()
         waveformAnalysisController.release()
         super.onDestroy()
     }
@@ -122,6 +131,7 @@ class MainActivity : ComponentActivity() {
         blocks.updatePlaybackProgress(playbackState.positionMs, playbackState.durationMs)
         blocks.updateWaveform(waveformData)
         blocks.updateBpm(bpmValue)
+        blocks.updateVolumeText(volumeText)
         val composition = FrameLayout(this).apply {
             layoutParams = matchParentLayoutParams()
         }
@@ -154,8 +164,11 @@ class MainActivity : ComponentActivity() {
         val fileName = queryDisplayName(uri) ?: "Áudio selecionado"
         waveformData = null
         bpmValue = null
+        gainState = GainState()
+        volumeText = "..."
         responsiveLayout?.updateWaveform(null)
         responsiveLayout?.updateBpm(null)
+        responsiveLayout?.updateVolumeText(volumeText)
         audioPlayerController.load(uri, fileName)
         waveformAnalysisController.analyze(
             uri = uri,
@@ -178,6 +191,11 @@ class MainActivity : ComponentActivity() {
                 responsiveLayout?.updateBpm(null)
             },
         )
+        loudnessAnalysisController.analyze(uri) { result ->
+            gainState = AutoGainCalculator.calculate(result)
+            volumeText = if (result.success) formatGain(gainState.finalGainDb) else formatGain(0f)
+            responsiveLayout?.updateVolumeText(volumeText)
+        }
     }
 
     private fun queryDisplayName(uri: Uri): String? {
@@ -223,6 +241,12 @@ class MainActivity : ComponentActivity() {
         ViewGroup.LayoutParams.MATCH_PARENT,
         ViewGroup.LayoutParams.MATCH_PARENT,
     )
+
+    private fun formatGain(gainDb: Float): String = when {
+        gainDb > 0.05f -> String.format(Locale.US, "+%.1f dB", gainDb)
+        gainDb < -0.05f -> String.format(Locale.US, "%.1f dB", gainDb)
+        else -> "0.0 dB"
+    }
 
     private companion object {
         const val INTRO_DURATION_MILLIS = 2_000L

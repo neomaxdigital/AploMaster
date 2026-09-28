@@ -47,6 +47,19 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
             backgroundColor = Color.rgb(2, 2, 12),
             centered = true,
         ),
+        NativeTextSpec(
+            blockIndex = 2,
+            text = "0.0 dB",
+            x = 1750f,
+            y = 300f,
+            width = 300f,
+            height = 145f,
+            textSize = 72f,
+            color = Color.WHITE,
+            bold = false,
+            backgroundColor = Color.rgb(3, 12, 23),
+            centered = true,
+        ),
     )
     private val interactionSpecs = listOf(
         InteractionSpec(1, InteractionType.PLAY_PAUSE, RectF(245f, 380f, 475f, 615f)),
@@ -133,6 +146,10 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
 
     fun updateBpm(value: Int?) {
         nativeTextViews[BPM_TEXT_INDEX].text = value?.toString() ?: "--"
+    }
+
+    fun updateVolumeText(value: String) {
+        nativeTextViews[VOLUME_TEXT_INDEX].text = value
     }
 
     fun updateSafeInsets(insets: Insets) {
@@ -311,6 +328,7 @@ class ResponsiveBlockLayout(context: Context) : ViewGroup(context) {
         const val POSITION_TEXT_INDEX = 4
         const val DURATION_TEXT_INDEX = 5
         const val BPM_TEXT_INDEX = 6
+        const val VOLUME_TEXT_INDEX = 7
         const val PLAYER_BLOCK_INDEX = 1
     }
 }
