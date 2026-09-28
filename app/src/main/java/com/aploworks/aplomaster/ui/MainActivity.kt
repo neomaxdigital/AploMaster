@@ -1,7 +1,6 @@
 package com.aploworks.aplomaster.ui
 
 import android.graphics.Color
-import android.graphics.Matrix
 import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
@@ -11,6 +10,8 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.core.view.WindowCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.aploworks.aplomaster.R
 
@@ -68,50 +69,32 @@ class MainActivity : ComponentActivity() {
 
         val background = createImageView(
             R.drawable.fundo_masterizacao_1080x2400,
-            ImageView.ScaleType.MATRIX,
+            ImageView.ScaleType.CENTER_CROP,
         )
-        val overlay = createImageView(
-            R.drawable.layout_masterizacao_volume_1080x2400,
-            ImageView.ScaleType.MATRIX,
-        )
+        val blocks = ResponsiveBlockLayout(this)
         val composition = FrameLayout(this).apply {
             layoutParams = matchParentLayoutParams()
         }
         composition.addView(background)
-        composition.addView(overlay)
-        composition.addOnLayoutChangeListener { view, left, top, right, bottom, _, _, _, _ ->
-            applySharedImageMatrix(
-                background = background,
-                overlay = overlay,
-                viewportWidth = right - left,
-                viewportHeight = bottom - top,
+        composition.addView(
+            blocks,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        ViewCompat.setOnApplyWindowInsetsListener(blocks) { _, insets ->
+            blocks.updateSafeInsets(
+                insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() or
+                        WindowInsetsCompat.Type.displayCutout(),
+                ),
             )
+            insets
         }
 
         root.addView(composition)
-    }
-
-    private fun applySharedImageMatrix(
-        background: ImageView,
-        overlay: ImageView,
-        viewportWidth: Int,
-        viewportHeight: Int,
-    ) {
-        if (viewportWidth == 0 || viewportHeight == 0) return
-
-        val scale = minOf(
-            viewportWidth / MASTER_WIDTH,
-            viewportHeight / MASTER_HEIGHT,
-        )
-        val horizontalOffset = (viewportWidth - MASTER_WIDTH * scale) / 2f
-        val verticalOffset = (viewportHeight - MASTER_HEIGHT * scale) / 2f
-        val sharedMatrix = Matrix().apply {
-            setScale(scale, scale)
-            postTranslate(horizontalOffset, verticalOffset)
-        }
-
-        background.imageMatrix = sharedMatrix
-        overlay.imageMatrix = sharedMatrix
+        ViewCompat.requestApplyInsets(blocks)
     }
 
     private fun createImageView(
@@ -133,7 +116,5 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val INTRO_DURATION_MILLIS = 2_000L
         const val WINDOW_BACKGROUND_COLOR = 0xFF010205.toInt()
-        const val MASTER_WIDTH = 1080f
-        const val MASTER_HEIGHT = 2400f
     }
 }
